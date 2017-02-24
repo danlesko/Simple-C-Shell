@@ -27,3 +27,7 @@ Requirement #3b was probably the easiest. The code used to basically run the for
 - http://stackoverflow.com/questions/5607455/checking-that-malloc-succeeded-in-c
 - http://stackoverflow.com/questions/4293475/reading-c-file-line-by-line-using-fgetc
 - http://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
+- http://pubs.opengroup.org/onlinepubs/9699919799/functions/malloc.html
+- http://pubs.opengroup.org/onlinepubs/9699919799/functions/realloc.html
+- http://pubs.opengroup.org/onlinepubs/9699919799/functions/free.html
+- http://pubs.opengroup.org/onlinepubs/9699919799/functions/fexecve.html
