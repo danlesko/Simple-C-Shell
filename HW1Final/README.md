@@ -1,4 +1,5 @@
 #shell-landesko
+
 ##HW1Final
 
 The requirements for the first simple shell program required a lot of research, and remembering how to do various things in C. Luckily, a few helpful functions were linked by Professor Sebald, and a lot of how to start the project and do error handling was discussed in class. I knew from the start that I would have to break up each chunk of the program to correspond with the three requirements:
