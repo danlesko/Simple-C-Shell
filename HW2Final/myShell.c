@@ -17,7 +17,7 @@
 
 // for execvp
 #include <unistd.h>
- 
+
 // for wait()
 #include <sys/wait.h>
 
@@ -28,7 +28,7 @@
 void command_prompt();
 
 // Accept command input of arbitrary length.
-char * grab_line();
+char * grab_line(int *);
 
 // Parse command-line arguments from the user's input
 char ** get_commands(char *);
@@ -48,23 +48,25 @@ void custom_setenv(char *, char **);
 
 void custom_getenv(char *, char **);
 
+char *qtok(char *str, char **next);
+
 char *custom_commands[] = {
-  "cd",
-  "chdir",
-  "echo",
-  "exit",
-  "setenv",
-  "getenv"
+	"cd",
+	"chdir",
+	"echo",
+	"exit",
+	"setenv",
+	"getenv"
 };
 
 // http://stackoverflow.com/questions/252748/how-can-i-use-an-array-of-function-pointers
 void (*custom_functions[]) (char *, char **) = {
-  &custom_cd,
-  &custom_chdir,
-  &custom_echo,
-  &custom_exit,
-  &custom_setenv,
-  &custom_getenv
+	&custom_cd,
+	&custom_chdir,
+	&custom_echo,
+	&custom_exit,
+	&custom_setenv,
+	&custom_getenv
 };
 
 
@@ -74,7 +76,61 @@ int main(/* not currently accepting command line args */){
 	command_prompt();
 
 	// currently program will never get to this. press ctrl + c to exit
-  	return 0;
+	return 0;
+}
+
+// http://stackoverflow.com/questions/9659697/parse-string-into-array-based-on-spaces-or-double-quotes-strings
+// Returns the end of the token, without chaning it.
+char *qtok(char *str, char **next)
+{
+    char *current = str;
+    char *start = str;
+    //int isQuoted = 0;
+
+    // Eat beginning whitespace.
+    while (*current && isspace(*current)) current++;
+    start = current;
+
+    if (*current == '"')
+    {
+        //isQuoted = 1;
+        // Quoted token
+        current++; // Skip the beginning quote.
+        start = current;
+        for (;;)
+        {
+            // Go till we find a quote or the end of string.
+            while (*current && (*current != '"')) current++;
+            if (!*current) 
+            {
+                // Reached the end of the string.
+                goto finalize;
+            }
+            if (*(current - 1) == '\\')
+            {
+                // Escaped quote keep going.
+                current++;
+                continue;
+            }
+            // Reached the ending quote.
+            goto finalize; 
+        }
+    }
+    // Not quoted so run till we see a space.
+    while (*current && !isspace(*current)) current++;
+	finalize:
+    if (*current)
+    {
+        // Close token if not closed already.
+        *current = 0;
+        current++;
+        // Eat trailing whitespace.
+        while (*current && isspace(*current)) current++;
+    }
+    *next = current;
+
+    //return isQuoted ? unescape(start, stderr) : start;
+    return start;
 }
 
 void run_commands(char ** commandTokens){
@@ -82,55 +138,55 @@ void run_commands(char ** commandTokens){
 	// taken from class slides 3.24
 	pid_t pid;
 
-    pid = fork();
+	pid = fork();
 
     if (pid < 0){ /* error occured */
-    	fprintf(stderr, "Fork Failed");
+	fprintf(stderr, "Fork Failed");
 	}
-	else if (pid == 0) { /* child process */
-		// hint was given to use a function with a "p"
-		// from the posix spec:
-		// Using execvp()
-		// The following example searches for the location of the ls command among the directories specified by the PATH environment variable, and passes arguments to the ls command in the cmd array.
-		execvp(commandTokens[0], commandTokens);
+		else if (pid == 0) { /* child process */
+			// hint was given to use a function with a "p"
+			// from the posix spec:
+			// Using execvp()
+			// The following example searches for the location of the ls command among the directories specified by the PATH environment variable, and passes arguments to the ls command in the cmd array.
+	execvp(commandTokens[0], commandTokens);
 	}
-	else{ /* parent process */
-		/* parent will wait for the child to complete */
-		wait(NULL);
-		//printf("Child Complete\n");
+		else{ /* parent process */
+			/* parent will wait for the child to complete */
+	wait(NULL);
+			//printf("Child Complete\n");
 	}
 }
 
-char * grab_line(){
+char * grab_line(int * size){
 
 	// beginning size of buffer allocation
 	const int bufferChunk = 512;
 
 	//point userInput to block of memory
-  	char * userInput = malloc(bufferChunk * sizeof(char));
+	char * userInput = malloc(bufferChunk * sizeof(char));
 
   	// http://stackoverflow.com/questions/5607455/checking-that-malloc-succeeded-in-c
-  	if (!userInput){
-  		printf("Failed to alloc buffer for user input!");
-  		return NULL;
-  	}
+	if (!userInput){
+		printf("Failed to alloc buffer for user input!");
+		return NULL;
+	}
 
-  	int numRealloc = 1;
-  	int i = 0;
-  	char c;
+	int numRealloc = 1;
+	int i = 0;
+	char c;
 
   	// http://stackoverflow.com/questions/4293475/reading-c-file-line-by-line-using-fgetc
   	// grab each char in stream 1 at a time
-  	for (c = fgetc(stdin);c != '\n';i++, c = fgetc(stdin)){
-	    
-	    userInput[i] = c;
+	for (c = fgetc(stdin);c != '\n';i++, c = fgetc(stdin)){
+
+		userInput[i] = c;
 
 	    // if the program has exceed the allocated buffer, reallocate memory
-	    if (i == bufferChunk){
-	    	numRealloc++;
+		if (i == bufferChunk){
+			numRealloc++;
 
         	// error checking realloc as described in class
-        	void * tptr;
+			void * tptr;
 			if (!(tptr = realloc(userInput, numRealloc * bufferChunk * sizeof(char)))){
 				free(userInput);
 				// other error handling
@@ -138,10 +194,13 @@ char * grab_line(){
 				return NULL;
 			}
 			userInput = tptr;
-        }
+		}
 	}
 
+
+
 	userInput[i] = '\0';
+	*size = i;
 	return userInput;
 }
 
@@ -151,31 +210,39 @@ char ** get_commands(char * userInput){
 	const int bufferChunk = 512;
 
 	// point commandTokens to block of memory
-    char ** commandTokens = malloc(bufferChunk * sizeof(char *));
+	char ** commandTokens = malloc(bufferChunk * sizeof(char *));
 
     // http://stackoverflow.com/questions/5607455/checking-that-malloc-succeeded-in-c
-    if (!userInput){
-  		printf("Failed to alloc buffer for command tokens!");
-  		return NULL;
-  	}
+	if (!userInput){
+		printf("Failed to alloc buffer for command tokens!");
+		return NULL;
+	}
 
     // http://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
     // example for how to use strtok_r
-    char *command;
-    char *rest = userInput;
+	//char command[bufferChunk];
+	//char *rest = userInput;
 
- 	int numRealloc = 1;
- 	int i = 0;
-  	for (;(command = strtok_r(rest, " ", &rest));i++) {
+	int numRealloc = 1;
+	int i = 0;
+	//int startStr = 0;
+	//int endStr;
 
-        commandTokens[i] = command;
+	char * pText = malloc(strlen(userInput) * sizeof(char *));
+    strcpy(pText, userInput);
 
-        // if the program has exceed the allocated buffer, reallocate memory
-	    if (i == bufferChunk){
-        	numRealloc++;
+	//char *pText = userInput;
+
+
+	while (*pText)
+    {
+        commandTokens[i] = qtok(pText, &pText);
+
+        if (i == bufferChunk){
+			numRealloc++;
 
         	// error checking realloc as described in class
-        	void * newtptr;
+			void * newtptr;
 			if (!(newtptr = realloc(commandTokens, numRealloc * bufferChunk * sizeof(char*)))){
 				free(commandTokens);
 				// other error handling
@@ -183,25 +250,133 @@ char ** get_commands(char * userInput){
 				return NULL;
 			}
 			commandTokens = newtptr;
-        }
+		}
+		i++;
     }
 
-    commandTokens[i] = NULL;
+    free(pText);
 
-    return commandTokens;
+	// for (;/*(command = strtok_r(rest, " ", &rest))*/;i++) {
+
+	// 	endStr = first_unquoted_space(userInput);
+	// 	memcpy(command, &userInput[startStr], endStr-1);
+	// 	startStr = endStr;
+	// 	command[endStr] = '\0';
+
+
+	// 	commandTokens[i] = command;
+
+ //        // if the program has exceed the allocated buffer, reallocate memory
+	// 	if (i == bufferChunk){
+	// 		numRealloc++;
+
+ //        	// error checking realloc as described in class
+	// 		void * newtptr;
+	// 		if (!(newtptr = realloc(commandTokens, numRealloc * bufferChunk * sizeof(char*)))){
+	// 			free(commandTokens);
+	// 			// other error handling
+	// 			printf("Failed to realloc buffer for command tokens!");
+	// 			return NULL;
+	// 		}
+	// 		commandTokens = newtptr;
+	// 	}
+	// }
+
+	commandTokens[i] = NULL;
+
+	return commandTokens;
 }
 
+
+
 void custom_cd(char * userInput, char ** commandTokens){
+	printf("Calling from cd command...\n");
 
+	int numTokens = 0;
 
+	while(commandTokens[numTokens] != NULL){
+		numTokens++;
+	}
+	
+	if(numTokens < 2)
+    {
+        if(getenv("HOME") != NULL)
+        {
+            chdir(getenv("HOME"));
+            setenv("PWD", getenv("HOME"),1);
+        }
+        else
+        {
+            printf("Error invalid home directory");
+        }
+    }
+    else
+    {
+    	char * unescapedTok = unescape(commandTokens[1], stderr);
+        chdir(unescapedTok);
+
+        char * unescapedCWD = unescape(getcwd(NULL, 0), stderr);
+        setenv("PWD", unescapedCWD, 1);
+        free (unescapedTok);
+        free (unescapedCWD);
+    }
 }
 
 void custom_chdir(char * userInput, char ** commandTokens){
-	printf("Calling from exit command...");
+	printf("Calling from cd command...\n");
+
+	int numTokens = 0;
+
+	while(commandTokens[numTokens] != NULL){
+		numTokens++;
+	}
+	
+	if(numTokens < 2)
+    {
+        if(getenv("HOME") != NULL)
+        {
+            chdir(getenv("HOME"));
+            setenv("PWD", getenv("HOME"),1);
+        }
+        else
+        {
+            printf("Error invalid home directory");
+        }
+    }
+    else
+    {
+    	char * unescapedTok = unescape(commandTokens[1], stderr);
+        chdir(unescapedTok);
+
+        char * unescapedCWD = unescape(getcwd(NULL, 0), stderr);
+        setenv("PWD", unescapedCWD, 1);
+        free (unescapedTok);
+        free (unescapedCWD);
+    }
 }
 
 void custom_echo(char * userInput, char ** commandTokens){
-	printf("Calling from exit command...");
+	printf("Calling from echo command...\n");
+
+	int numTokens = 0;
+
+	while(commandTokens[numTokens] != NULL){
+		numTokens++;
+	}
+	
+	if(numTokens < 2)
+    {
+    	// do nothing
+        return;      
+    }
+    else
+    {
+    	for(int i = 1; i<numTokens; i++){
+	    	printf("%s ", unescape(commandTokens[i], stderr));
+	    }
+	    printf("\n");	
+	    //return args;
+ 	}
 }
 
 // Command that can take zero or one arguments that exits your shell. 
@@ -218,13 +393,13 @@ void custom_exit(char * userInput, char ** commandTokens){
 	}
 
 	if (numTokens < 2){
-		printf("1...\n");
+		//printf("1...\n");
 		free(userInput);
 		free(commandTokens);
 		exit(0);
 	}
 	else if (numTokens < 3){
-		printf("2...\n");
+		//printf("2...\n");
 		char *end;
 		long num = strtol(commandTokens[1], &end, 10);
 		int exitNum = (int) num;
@@ -242,49 +417,166 @@ void custom_exit(char * userInput, char ** commandTokens){
 }
 
 void custom_setenv(char * userInput, char ** commandTokens){
-	printf("Calling from exit command...");
+	printf("Calling from setenv command...\n");
+
+	int numTokens = 0;
+
+	while(commandTokens[numTokens] != NULL){
+		numTokens++;
+	}
+
+	if (numTokens < 2){
+        printf("No arguments\n");
+        return;
+    } else {
+
+    	printf("BP 1\n");
+    	//char * env = strtok(commandTokens[1], "=");
+    	char * tempCommand = strchr(commandTokens[1], '=');
+    	//char * env = strchr(commandTokens[1], '=');
+    	//char * env = *tempCommand - commandTokens[1];
+
+    	size_t len = tempCommand - commandTokens[1];
+    	char * env = malloc(len + 1);
+    	memcpy(env, commandTokens[1], len);
+    	env[len] = 0;
+    	
+    	//tempCommand = tempCommand + 1;
+
+    	//commandTokens[1] = tempCommand;
+
+    	printf("BP 2\n");
+
+    	char * inputPtr = strchr(userInput, '=');
+    	inputPtr = inputPtr + 1;
+
+    	char * tempInput = malloc(strlen(userInput) * sizeof(char));
+    	strcpy(tempInput, inputPtr);
+
+    	printf("BP 3\n");
+
+    	/*char ** setenvTokens = get_commands(tempInput);
+
+    	int numEnvTokens = 0;
+
+    	while(setenvTokens[numEnvTokens] != NULL){
+			numEnvTokens++;
+		}
+
+		for (int i = 0; i < numEnvTokens; i++){
+			printf("%s\n", unescape(setenvTokens[i], stderr));
+			//printf("%s\n", setenvTokens[i]);
+		}*/
+
+    	//printf("%s\n", env/* unescape(commandTokens[1], stderr)*/);
+    	// printf("%s\n", tempCommand/* unescape(commandTokens[1], stderr)*/);
+    	//printf("%s\n", tempInput);
+
+    	//char * unescapedTempInput = unescape(tempInput, stderr);
+
+    	setenv(env, tempInput, 1);
+
+    	printf("BP 4\n");
+
+    	free(env);
+    	free(tempInput);
+    	//free(unescapedTempInput);
+
+    	printf("BP 5\n");
+    }
 }
 
 void custom_getenv(char * userInput, char ** commandTokens){
-	printf("Calling from exit command...");
+	printf("Calling from getenv command...\n");
+
+	int numTokens = 0;
+
+	while(commandTokens[numTokens] != NULL){
+		numTokens++;
+	}
+
+	if (numTokens < 2){
+        printf("No arguments\n");
+        return;
+    }
+    else if(numTokens < 3)
+    {
+        if(commandTokens[1] != NULL)
+        {
+            if(getenv(commandTokens[1]) != NULL)
+            {
+                //printf("%s\n", getenv(commandTokens[1]));
+                printf("what?\n");
+                return;
+            }
+            else
+            {
+            	printf("\n");
+                return;
+            }
+        }
+        else
+        {
+            return;
+        }
+
+    }
+    else
+    {
+        printf("Error invalid number of arguments\n");
+        return;
+    }
 }
 
 
 void command_prompt(){
+	int inputSize;
 	char * userInput;
 	char ** commandTokens;
-	char * exitToken = "";
+	//char * exitToken = "";
 
 	int customCommandsNum = 6;
 
 	// main loop for the shell program!
 	// in class suggestion to use a while loop
 	// run loop until user types exit
-  	for(;;){
-  		int i = 0;
-  		int runReg = 1;
+	for(;;){
+		//int i = 0;
+		int runReg = 1;
 
   		// Present the user with a prompt at which he or she can enter commands.
-  		printf("$: ");
+		printf("$: ");
 
   		// Accept command input of arbitrary length
-  		userInput = grab_line();
+		userInput = grab_line(&inputSize);
+		// printf("The inputsize is:%d\n", inputSize);
+
+		// user just presses enter
+		if (userInput == NULL || userInput[0] == '\0'){
+			//printf("Break here?\n");
+			continue;
+		}
+
 
 	    // Parse command-line arguments from the user's input
-	    commandTokens = get_commands(userInput);
+		commandTokens = get_commands(userInput);
 
-	    for(i = 0; i < customCommandsNum; i++){
+
+
+	    // tests to see if the command is in our local shell commands
+		for(int i = 0; i < customCommandsNum; i++){
 	    	if (strcmp(commandTokens[0], custom_commands[i])  == 0){ //expression equates to 0 when true
 				//printf("This work?\n");
-				(*custom_functions[i])(userInput, commandTokens);
-				runReg = 0;
+	    		(*custom_functions[i])(userInput, commandTokens);
+	    		runReg = 0;
 
-				break;
-			} 
+	    		break;
+	    	} 
 	    }
 
-	    if(runReg)
+	    if(runReg){
 	    	run_commands(commandTokens);
+	    }
 
 
 
@@ -298,10 +590,10 @@ void command_prompt(){
 		// 	exit(1);
 		// }
 
-		free(userInput);
-		free(commandTokens);
-  	}
+	    free(userInput);
+	    free(commandTokens);
+	}
 
-  	
+
 
 }
