@@ -395,7 +395,8 @@ void custom_echo(char * userInput, char ** commandTokens) {
 	}
 	else
 	{
-		for (int i = 1; i < numTokens; i++) {
+		int i = 0;
+		for (i = 1; i < numTokens; i++) {
 			printf("%s ", unescape(commandTokens[i], stderr));
 		}
 		printf("\n");
@@ -597,7 +598,8 @@ void command_prompt() {
 
 
 		// tests to see if the command is in our local shell commands
-		for (int i = 0; i < customCommandsNum; i++) {
+		int i = 0;
+		for (i = 0; i < customCommandsNum; i++) {
 			if (strcmp(commandTokens[0], custom_commands[i])  == 0) { //expression equates to 0 when true
 				//printf("This work?\n");
 				(*custom_functions[i])(userInput, commandTokens);
