@@ -254,7 +254,7 @@ char ** get_commands(char * userInput){
 		i++;
     }
 
-    free(pText);
+    // free(pText);
 
 	// for (;/*(command = strtok_r(rest, " ", &rest))*/;i++) {
 
@@ -472,15 +472,15 @@ void custom_setenv(char * userInput, char ** commandTokens){
     	// printf("%s\n", tempCommand/* unescape(commandTokens[1], stderr)*/);
     	//printf("%s\n", tempInput);
 
-    	//char * unescapedTempInput = unescape(tempInput, stderr);
+    	char * unescapedTempInput = unescape(tempInput, stderr);
 
-    	setenv(env, tempInput, 1);
+    	setenv(env, unescapedTempInput, 1);
 
     	printf("BP 4\n");
 
     	free(env);
     	free(tempInput);
-    	//free(unescapedTempInput);
+    	free(unescapedTempInput);
 
     	printf("BP 5\n");
     }
@@ -505,8 +505,8 @@ void custom_getenv(char * userInput, char ** commandTokens){
         {
             if(getenv(commandTokens[1]) != NULL)
             {
-                //printf("%s\n", getenv(commandTokens[1]));
-                printf("what?\n");
+                printf("%s\n", getenv(commandTokens[1]));
+                //printf("what?\n");
                 return;
             }
             else
