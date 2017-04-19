@@ -2,10 +2,11 @@
  * CMSC 421 Homework 2
  * Simple Shell Program
  *
- * Basic functionality with custom command overrides
- *
+ * Basic shell functionality with custom command overrides
+ * View functions starting with custom_* to get a better idea
  */
 
+// For fun colors!
 #define ANSI_COLOR_GREEN   "\x1b[32m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
@@ -40,32 +41,33 @@ void run_commands(char **);
 // If an argument is specified, it must be an integer, which should be used as the exit code for the program.
 // If a non-integer argument or multiple arguments is given, you must simply print out an error message and not exit.
 // If no argument is given, assume that the exit code should be 0.
-void custom_exit(char *, char **);
+void custom_exit(char *, char *, char **);
 
 // A built-in chdir command that changes the current working directory of the shell.
 // If no argument to this command is specified, then the directory shall be changed to the user's home directory
 // (assuming HOME is set in the user's environment — if it is not set, then you shall print out an error). You must also be sure to also update the PWD environment variable.
-void custom_cd(char *, char **);
+void custom_cd(char *, char *, char **);
 
 // same as custom_cd
-void custom_chdir(char *, char **);
+void custom_chdir(char *, char *, char **);
 
 // A built-in echo command that shall unescape the given string and print it out, followed by a newline on the user's standard output.
-void custom_echo(char *, char **);
+void custom_echo(char *, char *, char **);
 
 // A built-in setenv command that sets the specified environment variable name to a given value.
 // The value shall be unescaped prior to storing it in the environment variable.
 // The command shall be structured so that setenv key=value will set the environment variable key to the value.
 // Anything after the full unescaped value may be ignored (so if you had setenv k="v 123" abc , the abc part would simply be ignored).
-void custom_setenv(char *, char **);
+void custom_setenv(char *, char *, char **);
 
 // A built-in getenv command that looks up the specified environment variable (a string) and prints out the contents of it, followed by a newline character.
 // If the specified environment variable does not exist in the user's environment, then you shall simply print out the newline character specified above.
 // You should report an error if more than one argument is given to this command.
-void custom_getenv(char *, char **);
+void custom_getenv(char *, char *, char **);
 
 // Helper function that parses the tokens correctly based on whether we are inside of double quotations or not
 // http://stackoverflow.com/questions/9659697/parse-string-into-array-based-on-spaces-or-double-quotes-strings
+// slightly modifed for this shell
 char *tokenize_with_quotes(char *str, char **next);
 
 // All built-in commands shall have priority over identically named programs that are in the user's PATH.
@@ -79,7 +81,7 @@ char *custom_commands[] = {
 };
 
 // http://stackoverflow.com/questions/252748/how-can-i-use-an-array-of-function-pointers
-void (*custom_functions[]) (char *, char **) = {
+void (*custom_functions[]) (char *, char *, char **) = {
 	&custom_cd,
 	&custom_chdir,
 	&custom_echo,
@@ -102,7 +104,6 @@ char *tokenize_with_quotes(char *str, char **next)
 {
 	char *current = str;
 	char *start = str;
-	//int isQuoted = 0;
 
 	// Eat beginning whitespace.
 	while (*current && isspace(*current)) current++;
@@ -136,7 +137,7 @@ char *tokenize_with_quotes(char *str, char **next)
 	// Not quoted so run till we see a space.
 	while (*current && !isspace(*current)) current++;
 
-finalize:
+	finalize:
 	if (*current)
 	{
 		// Close token if not closed already.
@@ -236,31 +237,14 @@ char ** get_commands(char * userInput) {
 		return NULL;
 	}
 
-	// http://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
-	// example for how to use strtok_r
-	//char command[bufferChunk];
-	//char *rest = userInput;
-
 	int numRealloc = 1;
 	int i = 0;
-	//int startStr = 0;
-	//int endStr;
 
-	char * pText = malloc(strlen(userInput) * sizeof(char *));
-
-	if (!pText) {
-		printf("Failed to alloc buffer for user input!");
-		return NULL;
-	}
-
-	strcpy(pText, userInput);
-
-	//char *pText = userInput;
-
-
-	while (*pText)
+	while (*userInput)
 	{
-		commandTokens[i] = tokenize_with_quotes(pText, &pText);
+		// get tokens based on whether they are inside double quotes
+		// null is returned if we have quotes inside a word
+		commandTokens[i] = tokenize_with_quotes(userInput, &userInput);
 
 		if (i == bufferChunk) {
 			numRealloc++;
@@ -278,42 +262,12 @@ char ** get_commands(char * userInput) {
 		i++;
 	}
 
-	// free(pText);
-
-	// for (;/*(command = strtok_r(rest, " ", &rest))*/;i++) {
-
-	// 	endStr = first_unquoted_space(userInput);
-	// 	memcpy(command, &userInput[startStr], endStr-1);
-	// 	startStr = endStr;
-	// 	command[endStr] = '\0';
-
-
-	// 	commandTokens[i] = command;
-
-//        // if the program has exceed the allocated buffer, reallocate memory
-	// 	if (i == bufferChunk){
-	// 		numRealloc++;
-
-//        	// error checking realloc as described in class
-	// 		void * newtptr;
-	// 		if (!(newtptr = realloc(commandTokens, numRealloc * bufferChunk * sizeof(char*)))){
-	// 			free(commandTokens);
-	// 			// other error handling
-	// 			printf("Failed to realloc buffer for command tokens!");
-	// 			return NULL;
-	// 		}
-	// 		commandTokens = newtptr;
-	// 	}
-	// }
-
 	commandTokens[i] = NULL;
 
 	return commandTokens;
 }
 
-
-
-void custom_cd(char * userInput, char ** commandTokens) {
+void custom_cd(char * userInput, char * userInputCopy, char ** commandTokens) {
 	// printf("Calling from cd command...\n");
 
 	int numTokens = 0;
@@ -341,12 +295,13 @@ void custom_cd(char * userInput, char ** commandTokens) {
 
 		char * unescapedCWD = unescape(getcwd(NULL, 0), stderr);
 		setenv("PWD", unescapedCWD, 1);
+
 		free (unescapedTok);
 		free (unescapedCWD);
 	}
 }
 
-void custom_chdir(char * userInput, char ** commandTokens) {
+void custom_chdir(char * userInput, char * userInputCopy, char ** commandTokens) {
 	// printf("Calling from cd command...\n");
 
 	int numTokens = 0;
@@ -374,12 +329,13 @@ void custom_chdir(char * userInput, char ** commandTokens) {
 
 		char * unescapedCWD = unescape(getcwd(NULL, 0), stderr);
 		setenv("PWD", unescapedCWD, 1);
+
 		free (unescapedTok);
 		free (unescapedCWD);
 	}
 }
 
-void custom_echo(char * userInput, char ** commandTokens) {
+void custom_echo(char * userInput, char * userInputCopy, char ** commandTokens) {
 	// printf("Calling from echo command...\n");
 
 	int numTokens = 0;
@@ -397,14 +353,16 @@ void custom_echo(char * userInput, char ** commandTokens) {
 	{
 		int i = 0;
 		for (i = 1; i < numTokens; i++) {
-			printf("%s ", unescape(commandTokens[i], stderr));
+			char * echoTok = unescape(commandTokens[i], stderr);
+			printf("%s ", echoTok);
+			free(echoTok);
 		}
 		printf("\n");
 		//return args;
 	}
 }
 
-void custom_exit(char * userInput, char ** commandTokens) {
+void custom_exit(char * userInput, char * userInputCopy, char ** commandTokens) {
 
 	// printf("Calling from exit command function...\n");
 	int numTokens = 0;
@@ -416,6 +374,7 @@ void custom_exit(char * userInput, char ** commandTokens) {
 	if (numTokens < 2) {
 		//printf("1...\n");
 		free(userInput);
+		free(userInputCopy);
 		free(commandTokens);
 		exit(0);
 	}
@@ -428,16 +387,17 @@ void custom_exit(char * userInput, char ** commandTokens) {
 		// http://stackoverflow.com/questions/19148611/using-strtol-to-validate-integer-input-in-ansi-c
 		if (*end == '\0') {
 			free(userInput);
+			free(userInputCopy);
 			free(commandTokens);
 			exit(exitNum);
 		}
 
 	}
 
-	printf("Ya done goofed...\n");
+	printf("Error - A non-integer argument was passed to the exit command. Please try again!\n");
 }
 
-void custom_setenv(char * userInput, char ** commandTokens) {
+void custom_setenv(char * userInput, char * userInputCopy, char ** commandTokens) {
 	// printf("Calling from setenv command...\n");
 
 	int numTokens = 0;
@@ -452,10 +412,7 @@ void custom_setenv(char * userInput, char ** commandTokens) {
 	} else {
 
 		// printf("BP 1\n");
-		//char * env = strtok(commandTokens[1], "=");
 		char * tempCommand = strchr(commandTokens[1], '=');
-		//char * env = strchr(commandTokens[1], '=');
-		//char * env = *tempCommand - commandTokens[1];
 
 		size_t len = tempCommand - commandTokens[1];
 		char * env = malloc(len + 1);
@@ -467,17 +424,12 @@ void custom_setenv(char * userInput, char ** commandTokens) {
 
 		memcpy(env, commandTokens[1], len);
 		env[len] = 0;
-
-		//tempCommand = tempCommand + 1;
-
-		//commandTokens[1] = tempCommand;
-
 		// printf("BP 2\n");
 
-		char * inputPtr = strchr(userInput, '=');
+		char * inputPtr = strchr(userInputCopy, '=');
 		inputPtr = inputPtr + 1;
 
-		char * tempInput = malloc(strlen(userInput) * sizeof(char));
+		char * tempInput = malloc(strlen(userInputCopy) * sizeof(char));
 
 		if (!tempInput) {
 			printf("Failed to alloc buffer for user input!");
@@ -487,23 +439,6 @@ void custom_setenv(char * userInput, char ** commandTokens) {
 		strcpy(tempInput, inputPtr);
 
 		// printf("BP 3\n");
-
-		/*char ** setenvTokens = get_commands(tempInput);
-
-		int numEnvTokens = 0;
-
-		while(setenvTokens[numEnvTokens] != NULL){
-			numEnvTokens++;
-		}
-
-		for (int i = 0; i < numEnvTokens; i++){
-			printf("%s\n", unescape(setenvTokens[i], stderr));
-			//printf("%s\n", setenvTokens[i]);
-		}*/
-
-		//printf("%s\n", env/* unescape(commandTokens[1], stderr)*/);
-		// printf("%s\n", tempCommand/* unescape(commandTokens[1], stderr)*/);
-		//printf("%s\n", tempInput);
 
 		char * unescapedTempInput = unescape(tempInput, stderr);
 
@@ -519,7 +454,7 @@ void custom_setenv(char * userInput, char ** commandTokens) {
 	}
 }
 
-void custom_getenv(char * userInput, char ** commandTokens) {
+void custom_getenv(char * userInput, char * userInputCopy, char ** commandTokens) {
 	// printf("Calling from getenv command...\n");
 
 	int numTokens = 0;
@@ -550,13 +485,14 @@ void custom_getenv(char * userInput, char ** commandTokens) {
 		}
 		else
 		{
+			printf("\n");
 			return;
 		}
 
 	}
 	else
 	{
-		printf("Error invalid number of arguments\n");
+		printf("Error - invalid number of arguments!\n");
 		return;
 	}
 }
@@ -566,7 +502,6 @@ void command_prompt() {
 	int inputSize;
 	char * userInput;
 	char ** commandTokens;
-	//char * exitToken = "";
 
 	// probably bad practice to set this here but oh well
 	int customCommandsNum = 6;
@@ -588,21 +523,31 @@ void command_prompt() {
 		// user just presses enter
 		if (userInput == NULL || userInput[0] == '\0') {
 			//printf("Break here?\n");
+			free(userInput);
 			continue;
 		}
 
+		// have to make a copy of userInput because the tokenize function breaks it up
+		char * userInputCopy = malloc(strlen(userInput) * sizeof(char) + 1);
+
+		if (!userInputCopy) {
+			printf("Failed to alloc buffer for user input!");
+			return;
+		}
+
+		strcpy(userInputCopy, userInput);
 
 		// Parse command-line arguments from the user's input
 		commandTokens = get_commands(userInput);
-
-
 
 		// tests to see if the command is in our local shell commands
 		int i = 0;
 		for (i = 0; i < customCommandsNum; i++) {
 			if (strcmp(commandTokens[0], custom_commands[i])  == 0) { //expression equates to 0 when true
 				//printf("This work?\n");
-				(*custom_functions[i])(userInput, commandTokens);
+				(*custom_functions[i])(userInput, userInputCopy, commandTokens);
+
+				// set flag if it is
 				runReg = 0;
 
 				break;
@@ -613,20 +558,8 @@ void command_prompt() {
 			run_commands(commandTokens);
 		}
 
-		// Pass them along to the program that the user requests to be started.
-		//    	if (strcmp(commandTokens[0], "exit")){ //expression equates to 0 when true
-		// 	run_commands(commandTokens);
-		// }
-		// else{
-		// 	free(userInput);
-		// 	free(commandTokens);
-		// 	exit(1);
-		// }
-
 		free(userInput);
+		free(userInputCopy);
 		free(commandTokens);
 	}
-
-
-
 }
